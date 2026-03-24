@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import { ToastProvider, useToast } from './components/ToastSystem';
@@ -109,7 +109,7 @@ const App: React.FC = () => {
   return (
     <ToastProvider>
       <AudioProvider>
-        <BrowserRouter>
+        <HashRouter>
           <GlobalFilters />
 
           {/* Atmospheric overlays */}
@@ -127,7 +127,7 @@ const App: React.FC = () => {
             <Navbar />
             <AnimatedRoutes />
           </div>
-        </BrowserRouter>
+        </HashRouter>
       </AudioProvider>
     </ToastProvider>
   );
