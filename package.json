@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
-    "test": "npm run type-check && npm run build"
+    "verify": "npm run type-check && npm run build",
+    "test": "npm run verify"
   },
   "dependencies": {
     "clsx": "2.1.1",
