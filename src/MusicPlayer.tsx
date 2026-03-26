@@ -28,6 +28,14 @@ const UploadIcon = () => (
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
   </svg>
 );
+const ScanIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+    <path d="M3 7h18M3 17h18" />
+    <rect x="5" y="9" width="4" height="6" rx="1" />
+    <rect x="10" y="9" width="4" height="6" rx="1" />
+    <rect x="15" y="9" width="4" height="6" rx="1" />
+  </svg>
+);
 const SearchIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
     <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
@@ -96,7 +104,7 @@ export const MusicPlayer: React.FC = () => {
     visualData, avgLevel, progress, track,
     togglePlay, nextTrack, prevTrack, selectTrack,
     setVolume, toggleLoop,
-    fileRef, timelineRef,
+    fileRef, scanRef, timelineRef,
     isDragging, setIsDragging, seekFromEvent, initAudioCtx,
   } = engine;
 
@@ -279,6 +287,13 @@ export const MusicPlayer: React.FC = () => {
               <SearchIcon /> <span className="hidden sm:inline">CTRL+K</span>
             </button>
             <button
+              onClick={() => scanRef.current?.click()}
+              className="px-3 py-2 border border-[#222] hover:border-[#00ff9d]/40 text-[#777] hover:text-[#00ff9d] transition-all flex items-center gap-2"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em' }}
+            >
+              <ScanIcon /> SCAN DEVICE
+            </button>
+            <button
               onClick={() => fileRef.current?.click()}
               className="px-3 py-2 bg-[#00ff9d] text-black font-bold transition-all hover:bg-white flex items-center gap-2"
               style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em' }}
@@ -289,7 +304,7 @@ export const MusicPlayer: React.FC = () => {
         </div>
 
         {/* ── Visualizer area ─────────────────────────────── */}
-        <div className="w-full aspect-[2/1] sm:aspect-[2.5/1] bg-[#030303] border border-[#141414] rounded-sm relative overflow-hidden mb-1">
+        <div className="w-full aspect-[16/9] sm:aspect-[20/9] bg-[#030303] border border-[#141414] rounded-sm relative overflow-hidden mb-1">
           <div className="absolute inset-0 flex items-end justify-center gap-[2px] sm:gap-[3px] px-4 sm:px-8 pb-4">
             {visualData.map((val, i) => {
               const h = Math.max(2, (val / 255) * 100);
@@ -326,6 +341,13 @@ export const MusicPlayer: React.FC = () => {
                 style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em' }}
               >
                 CTRL+I TO IMPORT
+              </button>
+              <button
+                onClick={() => scanRef.current?.click()}
+                className="px-5 py-2.5 border border-[#111] text-[#333] hover:border-[#00ff9d] hover:text-[#00ff9d] transition-all"
+                style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em' }}
+              >
+                SCAN DEVICE
               </button>
             </div>
           )}
@@ -368,7 +390,7 @@ export const MusicPlayer: React.FC = () => {
         </div>
 
         {/* ── Timeline bar ────────────────────────────────── */}
-        <div className="w-full mb-8">
+        <div className="w-full mb-10">
           <div className="flex justify-between mb-2">
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#555', letterSpacing: '0.15em' }}>
               {formatTime(currentTime)}
@@ -401,7 +423,7 @@ export const MusicPlayer: React.FC = () => {
         </div>
 
         {/* ── Controls: Prev, Play, Next, Loop ────────────── */}
-        <div className="w-full flex items-center justify-center gap-6 sm:gap-10 mb-8">
+        <div className="w-full flex items-center justify-center gap-7 sm:gap-12 mb-10 pt-1">
           <button
             onClick={prevTrack}
             className="text-[#444] hover:text-[#00ff9d] active:scale-90 transition-all p-2"
