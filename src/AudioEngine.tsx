@@ -9,6 +9,9 @@ export interface Track {
   type: string;
 }
 
+const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.flac', '.aac', '.m4a', '.ogg', '.opus', '.weba', '.webm'];
+const TIME_UPDATE_THROTTLE_MS = 120; // ~8 updates per second to reduce re-render load
+
 interface AudioEngineState {
   tracks: Track[];
   currentIdx: number;
@@ -70,9 +73,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const rafRef = useRef<number>(0);
   const dragRafRef = useRef<number | null>(null);
+  const dragClientXRef = useRef<number | null>(null);
   const timeUpdateRef = useRef(0);
-  const vizBufferRef = useRef<Uint8Array | null>(null);
-  const vizStampRef = useRef(0);
+  const vizBufferRef = useRef<Uint8Array>(new Uint8Array(64));
+  const vizLastFrameRef = useRef(0);
 
   const track = currentIdx >= 0 && currentIdx < tracks.length ? tracks[currentIdx] : null;
 
@@ -128,15 +132,18 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   /* ── Visualizer loop — throttled for mobile ──────────────── */
   useEffect(() => {
     let running = true;
-    const targetFrameMs = isPlaying ? 55 : 85; // ~18fps while playing, lighter when idle
-    vizBufferRef.current = (vizBufferRef.current as Uint8Array<ArrayBuffer> | null) || new Uint8Array(new ArrayBuffer(128));
+    const targetFrameMs = isPlaying ? 55 : 85; // ≈18fps while playing, ≈11.8fps when idle
 
     const tick = (ts: number) => {
       if (!running) return;
-      const elapsed = ts - vizStampRef.current;
+      const elapsed = ts - vizLastFrameRef.current;
 
       if (analyzerRef.current && elapsed >= targetFrameMs) {
-        const buffer = vizBufferRef.current as Uint8Array<ArrayBuffer>;
+        const needsResize = vizBufferRef.current.length !== analyzerRef.current.frequencyBinCount;
+        if (needsResize) {
+          vizBufferRef.current = new Uint8Array(analyzerRef.current.frequencyBinCount);
+        }
+        const buffer = vizBufferRef.current as unknown as Uint8Array<ArrayBuffer>;
         analyzerRef.current.getByteFrequencyData(buffer);
         const slice = buffer.slice(0, 48);
         setVisualData(prev => {
@@ -148,14 +155,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
           return changed ? Array.from(slice) : prev;
         });
-        vizStampRef.current = ts;
+        vizLastFrameRef.current = ts;
       } else if (!analyzerRef.current && !isPlaying && elapsed >= targetFrameMs) {
         setVisualData(prev => {
           const allZero = prev.every(v => v < 1);
           if (allZero) return prev;
-          return prev.map(v => v * 0.9);
+          return prev.map(v => v * 0.92);
         });
-        vizStampRef.current = ts;
+        vizLastFrameRef.current = ts;
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -166,11 +173,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [isPlaying]);
 
-  const audioExtensions = ['.mp3', '.wav', '.flac', '.aac', '.m4a', '.ogg', '.opus', '.weba', '.webm'];
   const isAudioFile = (f: File) => {
     if (f.type && f.type.startsWith('audio/')) return true;
     const lower = f.name.toLowerCase();
-    return audioExtensions.some(ext => lower.endsWith(ext));
+    return AUDIO_EXTENSIONS.some(ext => lower.endsWith(ext));
+  };
+  const deriveDisplayType = (f: File): string | undefined => {
+    if (f.type) return f.type.split('/')[1]?.toUpperCase();
+    const ext = f.name.split('.').pop();
+    return ext ? ext.toUpperCase() : undefined;
   };
 
   /* ── Import handler ──────────────────────────────────────── */
@@ -179,7 +190,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
       if (isAudioFile(f)) {
-        const type = f.type ? f.type.split('/')[1]?.toUpperCase() : f.name.split('.').pop()?.toUpperCase();
+        const type = deriveDisplayType(f);
         added.push({
           id: crypto.randomUUID?.() || Math.random().toString(36).slice(2),
           name: f.name.replace(/\.[^/.]+$/, ''),
@@ -256,13 +267,20 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!isDragging) return;
     const onMove = (e: MouseEvent | TouchEvent) => {
       const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
-      if (dragRafRef.current) return;
-      dragRafRef.current = requestAnimationFrame(() => {
-        dragRafRef.current = null;
-        seekFromEvent(clientX);
-      });
+      dragClientXRef.current = clientX;
+      if (!dragRafRef.current) {
+        dragRafRef.current = requestAnimationFrame(() => {
+          dragRafRef.current = null;
+          if (dragClientXRef.current !== null) {
+            seekFromEvent(dragClientXRef.current);
+          }
+        });
+      }
     };
-    const onUp = () => setIsDragging(false);
+    const onUp = () => {
+      dragClientXRef.current = null;
+      setIsDragging(false);
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     window.addEventListener('touchmove', onMove);
@@ -303,7 +321,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         onTimeUpdate={() => {
           if (audioRef.current && !isDragging) {
             const now = performance.now();
-            if (now - timeUpdateRef.current > 120) {
+            if (now - timeUpdateRef.current > TIME_UPDATE_THROTTLE_MS) {
               setCurrentTime(audioRef.current.currentTime);
               setDuration(audioRef.current.duration || 0);
               timeUpdateRef.current = now;
@@ -342,10 +360,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         accept="audio/*"
         multiple
         className="hidden"
-        // @ts-ignore — for Chrome/Android file system scan
-        webkitdirectory="true"
-        // @ts-ignore — for Safari directory picker
-        directory="true"
+        // @ts-expect-error — non-standard directory picker attribute (Chromium-only)
+        webkitdirectory
+        // Directory scanning is only available on Chromium-based browsers; others fall back to manual import.
+        directory
         onChange={(e) => {
           if (e.target.files) {
             addTracks(e.target.files);
