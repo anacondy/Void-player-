@@ -37,7 +37,7 @@ const ScanIcon = () => (
   </svg>
 );
 const SearchIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
     <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
   </svg>
 );
@@ -281,7 +281,7 @@ export const MusicPlayer: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSearchOpen(true)}
-              className="px-3 py-2 border border-[#222] hover:border-[#00ff9d]/40 text-[#555] hover:text-[#00ff9d] transition-all flex items-center gap-2"
+              className="px-4 py-3 sm:px-3 sm:py-2 border border-[#222] hover:border-[#00ff9d]/40 text-[#555] hover:text-[#00ff9d] transition-all flex items-center gap-2 touch-manipulation"
               style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em' }}
             >
               <SearchIcon /> <span className="hidden sm:inline">CTRL+K</span>

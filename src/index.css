@@ -1,4 +1,6 @@
 @import "tailwindcss";
+* { transform: translateZ(0); backface-visibility: hidden; will-change: transform, opacity; }
+
 
 /* ─── CUSTOM PROPERTIES ─────────────────────────────────────── */
 :root {
@@ -539,3 +541,4 @@ body {
     scroll-behavior: auto !important;
   }
 }
+

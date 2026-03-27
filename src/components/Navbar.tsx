@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 const routes = [
   { path: '/',       label: 'HOME',   code: '01' },
   { path: '/player', label: 'PLAYER', code: '02' },
+  { path: '/feedback', label: 'FEEDBACK', code: '03' },
 ];
 
 const Navbar: React.FC = () => {
@@ -92,7 +93,13 @@ const Navbar: React.FC = () => {
           {routes.map(r => (
             <button
               key={r.path}
-              onClick={() => navigate(r.path)}
+              onClick={() => {
+                if(r.path === '/feedback') {
+                  window.open('https://github.com/anacondy/Void-player-/issues/new?template=feedback.md', '_blank');
+                } else {
+                  navigate(r.path);
+                }
+              }}
               className={`nav-link ${location.pathname === r.path ? 'active' : ''}`}
               style={{ background: 'none', border: 'none', cursor: 'pointer' }}
             >
@@ -151,7 +158,14 @@ const Navbar: React.FC = () => {
           {routes.map(r => (
             <button
               key={r.path}
-              onClick={() => navigate(r.path)}
+              onClick={() => {
+                if(r.path === '/feedback') {
+                  window.open('https://github.com/anacondy/Void-player-/issues/new?template=feedback.md', '_blank');
+                  setMenuOpen(false);
+                } else {
+                  navigate(r.path);
+                }
+              }}
               style={{
                 background: 'none',
                 border: 'none',
