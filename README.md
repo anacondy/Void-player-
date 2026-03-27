@@ -14,6 +14,10 @@ Cyberpunk-inspired music player built with React + Vite + TypeScript.
 ![Home (Mobile)](./screenshots/home-mobile.png)
 ![Player (Mobile)](./screenshots/player-mobile.png)
 
+## Changelog
+
+📋 **[View Full Changelog](./CHANGELOG.md)** - Detailed history of all changes, features, and improvements.
+
 ## Development
 
 ```bash

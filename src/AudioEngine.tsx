@@ -9,6 +9,9 @@ export interface Track {
   type: string;
 }
 
+const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.flac', '.aac', '.m4a', '.ogg', '.opus', '.weba', '.webm'];
+const TIME_UPDATE_THROTTLE_MS = 120; // ~8 updates per second to reduce re-render load
+
 interface AudioEngineState {
   tracks: Track[];
   currentIdx: number;
@@ -31,6 +34,7 @@ interface AudioEngineState {
   seekTo: (pct: number) => void;
   audioRef: React.RefObject<HTMLAudioElement | null>;
   fileRef: React.RefObject<HTMLInputElement | null>;
+  scanRef: React.RefObject<HTMLInputElement | null>;
   timelineRef: React.RefObject<HTMLDivElement | null>;
   isDragging: boolean;
   setIsDragging: (v: boolean) => void;
@@ -62,11 +66,17 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const scanRef = useRef<HTMLInputElement | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const rafRef = useRef<number>(0);
+  const dragRafRef = useRef<number | null>(null);
+  const dragClientXRef = useRef<number | null>(null);
+  const timeUpdateRef = useRef(0);
+  const vizBufferRef = useRef<Uint8Array>(new Uint8Array(64));
+  const vizLastFrameRef = useRef(0);
 
   const track = currentIdx >= 0 && currentIdx < tracks.length ? tracks[currentIdx] : null;
 
@@ -119,21 +129,40 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (_) { /* silent */ }
   }, []);
 
-  /* ── Visualizer loop — always running ────────────────────── */
+  /* ── Visualizer loop — throttled for mobile ──────────────── */
   useEffect(() => {
     let running = true;
-    const tick = () => {
+    const targetFrameMs = isPlaying ? 55 : 85; // ≈18fps while playing, ≈11.8fps when idle
+
+    const tick = (ts: number) => {
       if (!running) return;
-      if (analyzerRef.current) {
-        const arr = new Uint8Array(analyzerRef.current.frequencyBinCount);
-        analyzerRef.current.getByteFrequencyData(arr);
-        setVisualData(Array.from(arr.slice(0, 48)));
-      } else if (!isPlaying) {
+      const elapsed = ts - vizLastFrameRef.current;
+
+      if (analyzerRef.current && elapsed >= targetFrameMs) {
+        const needsResize = vizBufferRef.current.length !== analyzerRef.current.frequencyBinCount;
+        if (needsResize) {
+          vizBufferRef.current = new Uint8Array(analyzerRef.current.frequencyBinCount);
+        }
+        const buffer = vizBufferRef.current as unknown as Uint8Array<ArrayBuffer>;
+        analyzerRef.current.getByteFrequencyData(buffer);
+        const slice = buffer.slice(0, 48);
+        setVisualData(prev => {
+          let changed = prev.length !== slice.length;
+          if (!changed) {
+            for (let i = 0; i < slice.length; i++) {
+              if (prev[i] !== slice[i]) { changed = true; break; }
+            }
+          }
+          return changed ? Array.from(slice) : prev;
+        });
+        vizLastFrameRef.current = ts;
+      } else if (!analyzerRef.current && !isPlaying && elapsed >= targetFrameMs) {
         setVisualData(prev => {
           const allZero = prev.every(v => v < 1);
           if (allZero) return prev;
           return prev.map(v => v * 0.92);
         });
+        vizLastFrameRef.current = ts;
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -144,18 +173,30 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [isPlaying]);
 
+  const isAudioFile = (f: File) => {
+    if (f.type && f.type.startsWith('audio/')) return true;
+    const lower = f.name.toLowerCase();
+    return AUDIO_EXTENSIONS.some(ext => lower.endsWith(ext));
+  };
+  const deriveDisplayType = (f: File): string | undefined => {
+    if (f.type) return f.type.split('/')[1]?.toUpperCase();
+    const ext = f.name.split('.').pop();
+    return ext ? ext.toUpperCase() : undefined;
+  };
+
   /* ── Import handler ──────────────────────────────────────── */
   const addTracks = useCallback((files: FileList): number => {
     const added: Track[] = [];
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
-      if (f.type.startsWith('audio/')) {
+      if (isAudioFile(f)) {
+        const type = deriveDisplayType(f);
         added.push({
           id: crypto.randomUUID?.() || Math.random().toString(36).slice(2),
           name: f.name.replace(/\.[^/.]+$/, ''),
           file: f,
           url: URL.createObjectURL(f),
-          type: f.type.split('/')[1]?.toUpperCase() || 'AUDIO',
+          type: type || 'AUDIO',
         });
       }
     }
@@ -226,14 +267,29 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!isDragging) return;
     const onMove = (e: MouseEvent | TouchEvent) => {
       const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
-      seekFromEvent(clientX);
+      dragClientXRef.current = clientX;
+      if (!dragRafRef.current) {
+        dragRafRef.current = requestAnimationFrame(() => {
+          dragRafRef.current = null;
+          if (dragClientXRef.current !== null) {
+            seekFromEvent(dragClientXRef.current);
+          }
+        });
+      }
     };
-    const onUp = () => setIsDragging(false);
+    const onUp = () => {
+      dragClientXRef.current = null;
+      setIsDragging(false);
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     window.addEventListener('touchmove', onMove);
     window.addEventListener('touchend', onUp);
     return () => {
+      if (dragRafRef.current) {
+        cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       window.removeEventListener('touchmove', onMove);
@@ -252,7 +308,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     visualData, avgLevel, progress, track,
     addTracks, togglePlay, nextTrack, prevTrack, selectTrack,
     setVolume, toggleLoop, seekTo,
-    audioRef, fileRef, timelineRef,
+    audioRef, fileRef, scanRef, timelineRef,
     isDragging, setIsDragging, seekFromEvent, initAudioCtx,
   };
 
@@ -264,8 +320,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         preload="auto"
         onTimeUpdate={() => {
           if (audioRef.current && !isDragging) {
-            setCurrentTime(audioRef.current.currentTime);
-            setDuration(audioRef.current.duration || 0);
+            const now = performance.now();
+            if (now - timeUpdateRef.current > TIME_UPDATE_THROTTLE_MS) {
+              setCurrentTime(audioRef.current.currentTime);
+              setDuration(audioRef.current.duration || 0);
+              timeUpdateRef.current = now;
+            }
           }
         }}
         onLoadedMetadata={() => {
@@ -290,6 +350,23 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (count === 0) {
               // will show toast from player
             }
+            e.target.value = '';
+          }
+        }}
+      />
+      <input
+        ref={scanRef}
+        type="file"
+        accept="audio/*"
+        multiple
+        className="hidden"
+        // @ts-expect-error — non-standard directory picker attribute (Chromium-only)
+        webkitdirectory
+        // Directory scanning is only available on Chromium-based browsers; others fall back to manual import.
+        directory
+        onChange={(e) => {
+          if (e.target.files) {
+            addTracks(e.target.files);
             e.target.value = '';
           }
         }}
