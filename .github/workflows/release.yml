@@ -1,0 +1,204 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v1.3.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build PWA
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check & build
+        run: npm run test
+
+      - name: Compress PWA dist
+        run: |
+          cd dist
+          zip -r ../void-player-pwa-${{ steps.version.outputs.version }}.zip .
+          cd ..
+
+      - name: Upload PWA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pwa-dist
+          path: dist/
+          retention-days: 7
+
+      - name: Upload release zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-player-pwa-zip
+          path: void-player-pwa-${{ steps.version.outputs.version }}.zip
+
+  build-tauri:
+    name: Build Tauri (${{ matrix.platform }})
+    needs: build
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            artifact_ext: deb
+          - platform: windows
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_ext: exe
+          - platform: macos
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            artifact_ext: dmg
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ needs.build.outputs.version }}
+          releaseName: 'VOID Player ${{ needs.build.outputs.version }}'
+          releaseBody: |
+            ## VOID Player ${{ needs.build.outputs.version }}
+
+            ### Downloads
+            | Platform | Installer |
+            |----------|-----------|
+            | Windows  | `.exe` (NSIS installer) |
+            | Linux    | `.deb` (Debian/Ubuntu) |
+            | macOS    | `.dmg` (Apple Silicon) |
+            | PWA      | [Open in browser](https://anacondy.github.io/Void-player-/) |
+
+            See [CHANGELOG.md](https://github.com/anacondy/Void-player-/blob/main/CHANGELOG.md) for full release notes.
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: false
+          args: --target ${{ matrix.target }}
+
+  publish-release:
+    name: Publish GitHub Release (PWA only)
+    if: ${{ !contains(github.repository, 'src-tauri') }}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download PWA zip
+        uses: actions/download-artifact@v4
+        with:
+          name: void-player-pwa-zip
+
+      - name: Generate changelog excerpt
+        id: changelog
+        run: |
+          # Extract the latest version block from CHANGELOG.md
+          VERSION="${{ needs.build.outputs.version }}"
+          NOTES=$(awk "/^## \[${VERSION#v}\]|^## \[${VERSION}\]/{found=1; next} found && /^## /{exit} found{print}" CHANGELOG.md | head -60)
+          if [[ -z "$NOTES" ]]; then
+            NOTES="See [CHANGELOG.md](https://github.com/anacondy/Void-player-/blob/main/CHANGELOG.md) for release notes."
+          fi
+          {
+            echo "notes<<NOTES_EOF"
+            echo "$NOTES"
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.version }}
+          name: 'VOID Player ${{ needs.build.outputs.version }}'
+          body: |
+            ## VOID Player ${{ needs.build.outputs.version }}
+
+            ${{ steps.changelog.outputs.notes }}
+
+            ### Install Options
+            | Platform | Method |
+            |----------|--------|
+            | **PWA (Any device)** | Open [the live site](https://anacondy.github.io/Void-player-/) → "Add to Home Screen" |
+            | **Windows / Linux / macOS** | Run `install.sh` (Unix) or `install.ps1` (Windows) — see README |
+            | **Android** | Open the live site in Chrome → install PWA |
+            | **iOS** | Open the live site in Safari → Share → "Add to Home Screen" |
+
+            ### Supported Audio Formats
+            `MP3` · `FLAC` · `WAV` · `AAC` · `M4A` · `OGG` · `OPUS` · `WebM` · `WEBA`
+          files: void-player-pwa-${{ needs.build.outputs.version }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
