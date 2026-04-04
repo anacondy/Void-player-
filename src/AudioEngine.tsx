@@ -20,6 +20,7 @@ interface AudioEngineState {
   duration: number;
   volume: number;
   loop: boolean;
+  shuffle: boolean;
   visualData: number[];
   avgLevel: number;
   progress: number;
@@ -31,6 +32,7 @@ interface AudioEngineState {
   selectTrack: (idx: number) => void;
   setVolume: (v: number) => void;
   toggleLoop: () => void;
+  toggleShuffle: () => void;
   seekTo: (pct: number) => void;
   audioRef: React.RefObject<HTMLAudioElement | null>;
   fileRef: React.RefObject<HTMLInputElement | null>;
@@ -61,6 +63,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(0.8);
   const [loop, setLoop] = useState(false);
+  const [shuffle, setShuffle] = useState(false);
   const [visualData, setVisualData] = useState<number[]>(new Array(48).fill(0));
   const [isDragging, setIsDragging] = useState(false);
 
@@ -220,15 +223,29 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const nextTrack = useCallback(() => {
     if (tracks.length === 0) return;
-    setCurrentIdx(p => (p + 1) % tracks.length);
+    setCurrentIdx((p) => {
+      if (!shuffle || tracks.length === 1) return (p + 1) % tracks.length;
+      let next = p;
+      while (next === p) {
+        next = Math.floor(Math.random() * tracks.length);
+      }
+      return next;
+    });
     setIsPlaying(true);
-  }, [tracks.length]);
+  }, [tracks.length, shuffle]);
 
   const prevTrack = useCallback(() => {
     if (tracks.length === 0) return;
-    setCurrentIdx(p => (p - 1 + tracks.length) % tracks.length);
+    setCurrentIdx((p) => {
+      if (!shuffle || tracks.length === 1) return (p - 1 + tracks.length) % tracks.length;
+      let next = p;
+      while (next === p) {
+        next = Math.floor(Math.random() * tracks.length);
+      }
+      return next;
+    });
     setIsPlaying(true);
-  }, [tracks.length]);
+  }, [tracks.length, shuffle]);
 
   const selectTrack = useCallback((idx: number) => {
     initAudioCtx();
@@ -243,6 +260,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const toggleLoop = useCallback(() => {
     setLoop(p => !p);
+  }, []);
+
+  const toggleShuffle = useCallback(() => {
+    setShuffle(p => !p);
   }, []);
 
   const seekTo = useCallback((pct: number) => {
@@ -304,10 +325,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   const value: AudioEngineState = {
-    tracks, currentIdx, isPlaying, currentTime, duration, volume, loop,
+    tracks, currentIdx, isPlaying, currentTime, duration, volume, loop, shuffle,
     visualData, avgLevel, progress, track,
     addTracks, togglePlay, nextTrack, prevTrack, selectTrack,
-    setVolume, toggleLoop, seekTo,
+    setVolume, toggleLoop, toggleShuffle, seekTo,
     audioRef, fileRef, scanRef, timelineRef,
     isDragging, setIsDragging, seekFromEvent, initAudioCtx,
   };

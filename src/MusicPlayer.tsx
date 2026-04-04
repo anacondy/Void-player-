@@ -59,6 +59,15 @@ const LoopIcon = ({ active }: { active: boolean }) => (
     <path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
   </svg>
 );
+const ShuffleIcon = ({ active }: { active: boolean }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke={active ? '#00ff9d' : 'currentColor'} strokeWidth="2" className="w-5 h-5">
+    <path d="M16 3h5v5" />
+    <path d="M4 20 20 4" />
+    <path d="M21 16v5h-5" />
+    <path d="M15 15 20 20" />
+    <path d="M4 4l5 5" />
+  </svg>
+);
 
 /* ─── Helpers ──────────────────────────────────────────────── */
 const formatTime = (t: number) => {
@@ -100,10 +109,10 @@ export const MusicPlayer: React.FC = () => {
   const searchBackdropRef = useRef<HTMLDivElement>(null);
 
   const {
-    tracks, currentIdx, isPlaying, currentTime, duration, volume, loop,
+    tracks, currentIdx, isPlaying, currentTime, duration, volume, loop, shuffle,
     visualData, avgLevel, progress, track,
     togglePlay, nextTrack, prevTrack, selectTrack,
-    setVolume, toggleLoop,
+    setVolume, toggleLoop, toggleShuffle,
     fileRef, scanRef, timelineRef,
     isDragging, setIsDragging, seekFromEvent, initAudioCtx,
   } = engine;
@@ -143,6 +152,18 @@ export const MusicPlayer: React.FC = () => {
       if (e.code === 'Space') {
         e.preventDefault();
         togglePlay();
+      }
+      if (e.key === 'F10') {
+        e.preventDefault();
+        togglePlay();
+      }
+      if (e.key === 'F11') {
+        e.preventDefault();
+        nextTrack();
+      }
+      if (e.key === 'F9') {
+        e.preventDefault();
+        prevTrack();
       }
       // Left/Right = prev/next track
       if (e.key === 'ArrowRight') {
@@ -383,7 +404,7 @@ export const MusicPlayer: React.FC = () => {
                   color: isPlaying ? '#00ff9d' : '#333',
                 }}
               >
-                {track ? `${isPlaying ? 'PLAYING' : 'PAUSED'} · ${track.type}${loop ? ' · LOOP' : ''}` : 'AWAITING INPUT'}
+                {track ? `${isPlaying ? 'PLAYING' : 'PAUSED'} · ${track.type}${loop ? ' · LOOP' : ''}${shuffle ? ' · SHUFFLE' : ''}` : 'AWAITING INPUT'}
               </p>
             </motion.div>
           </AnimatePresence>
@@ -422,12 +443,26 @@ export const MusicPlayer: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Controls: Prev, Play, Next, Loop ────────────── */}
+        {/* ── Controls: Shuffle, Prev, Play, Next, Loop ───── */}
         <div className="w-full flex items-center justify-center gap-7 sm:gap-12 mb-10 pt-3">
+          <button
+            onClick={toggleShuffle}
+            className={`p-2 transition-all active:scale-90 ${shuffle ? 'text-[#00ff9d]' : 'text-[#333] hover:text-[#666]'}`}
+            title={shuffle ? 'Shuffle: ON' : 'Shuffle: OFF'}
+          >
+            <ShuffleIcon active={shuffle} />
+            {shuffle && (
+              <div
+                className="w-1 h-1 rounded-full bg-[#00ff9d] mx-auto mt-1"
+                style={{ boxShadow: '0 0 6px rgba(0,255,157,0.6)' }}
+              />
+            )}
+          </button>
+
           <button
             onClick={prevTrack}
             className="text-[#444] hover:text-[#00ff9d] active:scale-90 transition-all p-2"
-            title="Previous (←)"
+            title="Previous (← / F9)"
           >
             <SkipPrevIcon />
           </button>
@@ -442,7 +477,7 @@ export const MusicPlayer: React.FC = () => {
                 ? '0 0 30px rgba(0,255,157,0.15), inset 0 0 20px rgba(0,255,157,0.05)'
                 : 'none',
             }}
-            title="Play/Pause (Space)"
+            title="Play/Pause (Space / F10)"
           >
             {isPlaying ? <PauseIcon /> : <PlayIcon />}
           </button>
@@ -450,7 +485,7 @@ export const MusicPlayer: React.FC = () => {
           <button
             onClick={nextTrack}
             className="text-[#444] hover:text-[#00ff9d] active:scale-90 transition-all p-2"
-            title="Next (→)"
+            title="Next (→ / F11)"
           >
             <SkipNextIcon />
           </button>
@@ -557,8 +592,9 @@ export const MusicPlayer: React.FC = () => {
         {/* ── Keyboard shortcuts hint ─────────────────────── */}
         <div className="w-full mt-8 pt-6 border-t border-[#0d0d0d] hidden sm:flex items-center justify-center gap-6 flex-wrap">
           {[
-            ['SPACE', 'Play / Pause'],
-            ['← →', 'Prev / Next'],
+            ['SPACE/F10', 'Play / Pause'],
+            ['←/F9', 'Previous'],
+            ['→/F11', 'Next'],
             ['↑ ↓', 'Volume'],
             ['⌘K', 'Search'],
             ['⌘I', 'Import'],
