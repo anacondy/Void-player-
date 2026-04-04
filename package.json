@@ -9,9 +9,11 @@
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
     "verify": "npm run type-check && npm run build",
-    "test": "npm run verify"
+    "test": "npm run verify",
+    "tauri": "tauri"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.10.1",
     "clsx": "2.1.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.6.0",
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.17",
+    "@tauri-apps/cli": "^2.10.1",
     "@types/node": "^22.0.0",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
