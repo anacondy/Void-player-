@@ -527,7 +527,7 @@ export const MusicPlayer: React.FC = () => {
                   }`}
                 >
                   <span
-                    className="opacity-30 w-5 text-right shrink-0"
+                    className="opacity-80 w-5 text-right shrink-0"
                     style={{ fontFamily: 'var(--font-mono)', fontSize: '9px' }}
                   >
                     {String(i + 1).padStart(2, '0')}
@@ -732,7 +732,7 @@ export const MusicPlayer: React.FC = () => {
                         style={{
                           fontFamily: 'var(--font-mono)',
                           fontSize: '9px',
-                          color: isCurrent ? '#00ff9d' : '#333',
+                          color: isCurrent ? '#00ff9d' : '#7a7a7a',
                         }}
                       >
                         {String(realIdx + 1).padStart(2, '0')}
