@@ -11,6 +11,11 @@ export interface Track {
 
 const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.flac', '.aac', '.m4a', '.ogg', '.opus', '.weba', '.webm'];
 const TIME_UPDATE_THROTTLE_MS = 120; // ~8 updates per second to reduce re-render load
+const pickDifferentRandomIndex = (current: number, length: number) => {
+  if (length <= 1) return current;
+  const offset = Math.floor(Math.random() * (length - 1)) + 1;
+  return (current + offset) % length;
+};
 
 interface AudioEngineState {
   tracks: Track[];
@@ -82,12 +87,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const vizLastFrameRef = useRef(0);
 
   const track = currentIdx >= 0 && currentIdx < tracks.length ? tracks[currentIdx] : null;
-  const pickDifferentRandomIndex = useCallback((current: number, length: number) => {
-    if (length <= 1) return current;
-    const offset = Math.floor(Math.random() * (length - 1)) + 1;
-    return (current + offset) % length;
-  }, []);
-
   /* ── Volume sync ─────────────────────────────────────────── */
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
@@ -233,7 +232,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return pickDifferentRandomIndex(p, tracks.length);
     });
     setIsPlaying(true);
-  }, [tracks.length, shuffle, pickDifferentRandomIndex]);
+  }, [tracks.length, shuffle]);
 
   const prevTrack = useCallback(() => {
     if (tracks.length === 0) return;
@@ -242,7 +241,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return pickDifferentRandomIndex(p, tracks.length);
     });
     setIsPlaying(true);
-  }, [tracks.length, shuffle, pickDifferentRandomIndex]);
+  }, [tracks.length, shuffle]);
 
   const selectTrack = useCallback((idx: number) => {
     initAudioCtx();
