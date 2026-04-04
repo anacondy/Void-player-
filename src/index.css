@@ -1,5 +1,4 @@
 @import "tailwindcss";
-* { transform: translateZ(0); backface-visibility: hidden; will-change: transform, opacity; }
 
 
 /* ─── CUSTOM PROPERTIES ─────────────────────────────────────── */
@@ -541,4 +540,3 @@ body {
     scroll-behavior: auto !important;
   }
 }
-

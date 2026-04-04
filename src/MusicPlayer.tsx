@@ -390,12 +390,12 @@ export const MusicPlayer: React.FC = () => {
         </div>
 
         {/* ── Timeline bar ────────────────────────────────── */}
-        <div className="w-full mb-10">
+        <div className="w-full mb-11">
           <div className="flex justify-between mb-2">
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#555', letterSpacing: '0.15em' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#8a8a8a', letterSpacing: '0.15em' }}>
               {formatTime(currentTime)}
             </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#333', letterSpacing: '0.15em' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#777', letterSpacing: '0.15em' }}>
               {formatTime(duration)}
             </span>
           </div>
@@ -423,7 +423,7 @@ export const MusicPlayer: React.FC = () => {
         </div>
 
         {/* ── Controls: Prev, Play, Next, Loop ────────────── */}
-        <div className="w-full flex items-center justify-center gap-7 sm:gap-12 mb-10 pt-1">
+        <div className="w-full flex items-center justify-center gap-7 sm:gap-12 mb-10 pt-3">
           <button
             onClick={prevTrack}
             className="text-[#444] hover:text-[#00ff9d] active:scale-90 transition-all p-2"
@@ -494,7 +494,7 @@ export const MusicPlayer: React.FC = () => {
           </div>
           <span
             className="tabular-nums"
-            style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#444', width: '28px', textAlign: 'right' }}
+            style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#8a8a8a', width: '28px', textAlign: 'right' }}
           >
             {Math.round(volume * 100)}
           </span>
