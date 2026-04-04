@@ -82,6 +82,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const vizLastFrameRef = useRef(0);
 
   const track = currentIdx >= 0 && currentIdx < tracks.length ? tracks[currentIdx] : null;
+  const pickDifferentRandomIndex = useCallback((current: number, length: number) => {
+    if (length <= 1) return current;
+    const offset = Math.floor(Math.random() * (length - 1)) + 1;
+    return (current + offset) % length;
+  }, []);
 
   /* ── Volume sync ─────────────────────────────────────────── */
   useEffect(() => {
@@ -225,27 +230,19 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (tracks.length === 0) return;
     setCurrentIdx((p) => {
       if (!shuffle || tracks.length === 1) return (p + 1) % tracks.length;
-      let next = p;
-      while (next === p) {
-        next = Math.floor(Math.random() * tracks.length);
-      }
-      return next;
+      return pickDifferentRandomIndex(p, tracks.length);
     });
     setIsPlaying(true);
-  }, [tracks.length, shuffle]);
+  }, [tracks.length, shuffle, pickDifferentRandomIndex]);
 
   const prevTrack = useCallback(() => {
     if (tracks.length === 0) return;
     setCurrentIdx((p) => {
       if (!shuffle || tracks.length === 1) return (p - 1 + tracks.length) % tracks.length;
-      let next = p;
-      while (next === p) {
-        next = Math.floor(Math.random() * tracks.length);
-      }
-      return next;
+      return pickDifferentRandomIndex(p, tracks.length);
     });
     setIsPlaying(true);
-  }, [tracks.length, shuffle]);
+  }, [tracks.length, shuffle, pickDifferentRandomIndex]);
 
   const selectTrack = useCallback((idx: number) => {
     initAudioCtx();

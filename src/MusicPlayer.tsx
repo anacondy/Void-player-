@@ -149,28 +149,15 @@ export const MusicPlayer: React.FC = () => {
       // Don't intercept when search is open (except ESC above)
       if (searchOpen) return;
       // Space = play/pause
-      if (e.code === 'Space') {
+      if (e.code === 'Space' || e.key === 'F10') {
         e.preventDefault();
         togglePlay();
       }
-      if (e.key === 'F10') {
-        e.preventDefault();
-        togglePlay();
-      }
-      if (e.key === 'F11') {
+      if (e.key === 'ArrowRight' || e.key === 'F11') {
         e.preventDefault();
         nextTrack();
       }
-      if (e.key === 'F9') {
-        e.preventDefault();
-        prevTrack();
-      }
-      // Left/Right = prev/next track
-      if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        nextTrack();
-      }
-      if (e.key === 'ArrowLeft') {
+      if (e.key === 'ArrowLeft' || e.key === 'F9') {
         e.preventDefault();
         prevTrack();
       }
